@@ -1,4 +1,5 @@
 import csv
+import re
 import time
 from dataclasses import dataclass, fields, astuple
 
@@ -30,24 +31,28 @@ def get_num_pages(soup: BeautifulSoup) -> int:
     return int(page_numbers.select("li.page-item")[-2].text)
 
 
-def parse_job_details(detail_url: str) -> str:
+def parse_description(detail_url: str) -> str:
     response = requests.get(BASE_URL + detail_url).content
     detail_page_soup = BeautifulSoup(response, "html.parser")
 
-    description = detail_page_soup.select_one(".row-mobile-order-2").text.strip()
+    description = detail_page_soup.select_one(
+        ".row-mobile-order-2:first-cØhild div"
+    ).text.strip()
+    non_cyrillic_text = re.sub(r"[^\x00-\x7F]", "", description)
 
-    return description
+    return non_cyrillic_text
 
 
 def parse_single_vacancy(vacancies: BeautifulSoup) -> Job:
     experience = vacancies.select_one("span:-soup-contains('experience')").text.split()[
         1
     ]
+
     if "No" in experience:
         experience = 0
 
     vacancy_detail = vacancies.select_one(".job-list-item__link")["href"]
-    description = parse_job_details(vacancy_detail)
+    description = parse_description(vacancy_detail)
 
     return Job(
         name=vacancies.select_one(".job-list-item__link").text.strip(),
